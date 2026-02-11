@@ -1,0 +1,13 @@
+[Unit]
+Description=ArkOS Auto Cleanup Service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cleanup.sh
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

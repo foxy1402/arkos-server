@@ -1,0 +1,15 @@
+   # Check status
+   sudo systemctl status ipbot.service
+
+   # View logs
+   journalctl -u ipbot.service -f
+
+   # Restart bot
+   sudo systemctl restart ipbot.service
+
+   # Stop bot
+   sudo systemctl stop ipbot.service
+
+   # Edit bot script
+   nano /opt/scripts/ip_bot.py
+   # Then restart: sudo systemctl restart ipbot.service

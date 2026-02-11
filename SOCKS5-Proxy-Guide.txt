@@ -1,0 +1,152 @@
+# R36S SOCKS5 Proxy - Connection Guide
+
+## ✅ SOCKS5 Proxy Server Details
+
+**Server:** 192.168.0.179  
+**Port:** 1080  
+**Protocol:** SOCKS5 with authentication  
+**Username:** arkproxy  
+**Password:** arkproxy2026  
+
+**Status:** ✅ Running and enabled on boot  
+**Service:** socks5proxy.service  
+**Script:** /opt/scripts/socks5_proxy.py  
+
+---
+
+## 📱 Connection Examples
+
+### Windows/Mac/Linux
+```
+SOCKS5 Host: 192.168.0.179
+Port: 1080
+Username: arkproxy
+Password: arkproxy2026
+```
+
+### Browser (Firefox)
+1. Settings → Network Settings → Manual proxy configuration
+2. SOCKS Host: `192.168.0.179`
+3. Port: `1080`
+4. SOCKS v5: ✓ checked
+5. Enable "Proxy DNS when using SOCKS v5"
+
+### cURL
+```bash
+curl --socks5 arkproxy:arkproxy2026@192.168.0.179:1080 https://ifconfig.me
+```
+
+### Python (requests with PySocks)
+```python
+import requests
+
+proxies = {
+    'http': 'socks5://arkproxy:arkproxy2026@192.168.0.179:1080',
+    'https': 'socks5://arkproxy:arkproxy2026@192.168.0.179:1080'
+}
+
+response = requests.get('https://ifconfig.me', proxies=proxies)
+print(response.text)
+```
+
+---
+
+## 🔧 Management Commands (via SSH)
+
+### Check Status
+```bash
+sudo systemctl status socks5proxy.service
+```
+
+### Restart Service
+```bash
+sudo systemctl restart socks5proxy.service
+```
+
+### View Live Logs
+```bash
+journalctl -u socks5proxy.service -f
+```
+
+### Stop Service
+```bash
+sudo systemctl stop socks5proxy.service
+```
+
+### Start Service
+```bash
+sudo systemctl start socks5proxy.service
+```
+
+### Disable Auto-Start on Boot
+```bash
+sudo systemctl disable socks5proxy.service
+```
+
+### Edit Configuration
+```bash
+sudo nano /opt/scripts/socks5_proxy.py
+# Then restart: sudo systemctl restart socks5proxy.service
+```
+
+---
+
+## 📊 What's Running on Your R36S
+
+1. **SOCKS5 Proxy Server** - Port 1080
+   - Auto-starts on boot
+   - ~2-3MB RAM usage
+   - Username/password authentication
+
+2. **Telegram IP Bot** - Always running
+   - Send `/ip` to get status
+   - Shows: IP, CPU, RAM, Battery
+
+---
+
+## 🔒 Security Notes
+
+- SOCKS5 proxy requires authentication (username + password)
+- Only accessible from your local network (192.168.0.x)
+- Change credentials by editing `/opt/scripts/socks5_proxy.py`
+- Lightweight - minimal impact on R36S gaming performance
+
+---
+
+## 🐛 Troubleshooting
+
+**Proxy not connecting?**
+```bash
+# Check if service is running
+sudo systemctl status socks5proxy.service
+
+# Check if port is listening
+netstat -tlnp | grep 1080
+
+# Restart service
+sudo systemctl restart socks5proxy.service
+```
+
+**Change username/password:**
+```bash
+sudo nano /opt/scripts/socks5_proxy.py
+# Edit PROXY_USER and PROXY_PASS
+# Save and restart
+sudo systemctl restart socks5proxy.service
+```
+
+---
+
+## 📝 Files Created
+
+**On R36S (via SSH):**
+- `/opt/scripts/socks5_proxy.py` - SOCKS5 server script
+- `/etc/systemd/system/socks5proxy.service` - systemd service
+- `/opt/scripts/ip_bot.py` - Telegram bot (already existing)
+
+**On Desktop:**
+- `socks5_proxy.py` - Local copy
+- `ip_bot.py` - Telegram bot copy
+- `dev-arkos.md` - Developer docs
+
+Enjoy your portable SOCKS5 proxy server! 🎮🚀
