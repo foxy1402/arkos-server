@@ -34,7 +34,14 @@ A collection of lightweight server tools for ArkOS (R36S handheld device), turni
 - Cleans APT cache, pip cache, Python bytecode
 - Runs automatically on every boot
 - Extends SD card lifespan by reducing writes
+- Cleans DuckDNS logs automatically
 - Logs cleanup results to `/tmp/cleanup.log`
+
+### 4. DuckDNS Auto-Update (`setup_duckdns.sh`)
+- Keep your dynamic DNS updated 24/7
+- Updates every 5 minutes via crontab
+- Survives reboots automatically
+- Logs to `/tmp/duck.log` (cleaned by cleanup.sh)
 
 ---
 
@@ -235,6 +242,45 @@ sudo systemctl status cleanup.service
 sudo /opt/scripts/cleanup.sh
 cat /tmp/cleanup.log
 ```
+
+### Setup DuckDNS Auto-Update (Optional)
+
+Keep your device accessible with a static domain name, even with a dynamic IP.
+
+**Step 1: Get DuckDNS Credentials**
+1. Visit [DuckDNS.org](https://www.duckdns.org) and sign in
+2. Create a subdomain (e.g., `yourname.duckdns.org`)
+3. Copy your token from the dashboard
+
+**Step 2: Configure the Setup Script**
+
+```bash
+# Edit the setup script with your credentials
+nano setup_duckdns.sh
+```
+
+Replace `YOUR_DOMAIN` and `YOUR_TOKEN` with your actual values:
+```bash
+DOMAIN="yourname"  # Without .duckdns.org
+TOKEN="your-token-here"
+```
+
+**Step 3: Run the Setup**
+
+```bash
+chmod +x setup_duckdns.sh
+./setup_duckdns.sh
+```
+
+This adds a crontab entry that updates your DuckDNS domain every 5 minutes. The update survives reboots and runs automatically 24/7.
+
+**Verify it's working:**
+```bash
+crontab -l  # View crontab entries
+cat /tmp/duck.log  # Check last update result
+```
+
+The log is automatically cleaned by `cleanup.sh` to protect your SD card.
 
 ---
 

@@ -21,6 +21,10 @@ echo "✓ Python bytecode cleaned" >> $LOG_FILE
 # Clean tmp files older than 1 day
 find /tmp -type f -mtime +1 -delete 2>/dev/null
 find /var/tmp -type f -mtime +1 -delete 2>/dev/null
+
+# Clean DuckDNS log (if exists)
+rm -f /tmp/duck.log 2>/dev/null
+
 echo "✓ Old temp files cleaned" >> $LOG_FILE
 
 # Clean thumbnail cache
