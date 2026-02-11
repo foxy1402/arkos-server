@@ -1,13 +1,20 @@
 # ArkOS Server Suite
 
 A collection of lightweight server tools for ArkOS (R36S handheld device), turning your gaming device into a portable server running:
+<<<<<<< HEAD
 - Telegram Bot for remote system monitoring
 - SOCKS5 Proxy Server with authentication
 - Automatic cleanup system to extend SD card lifespan
+=======
+- ðŸ“± Telegram Bot for remote system monitoring
+- ðŸŒ SOCKS5 Proxy Server with authentication
+- ðŸ§¹ Automatic cleanup system to extend SD card lifespan
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ## Features
 
 ### 1. IP Telegram Bot (`ip_bot.py`)
+<<<<<<< HEAD
 - Get public IP address remotely
 - Monitor CPU usage in real-time
 - Check RAM usage percentage
@@ -32,6 +39,32 @@ A collection of lightweight server tools for ArkOS (R36S handheld device), turni
 ---
 
 ## Installation
+=======
+- ðŸ“¡ Get public IP address remotely
+- ðŸ”§ Monitor CPU usage in real-time
+- ðŸ’¾ Check RAM usage percentage
+- ðŸ”‹ Battery status with charging indicator
+- ðŸ”’ Authorized user access only
+- âš¡ Auto-starts on boot
+
+### 2. SOCKS5 Proxy Server (`socks5_proxy.py`)
+- ðŸ” Username/password authentication
+- ðŸŒ Pure Python implementation (no compilation needed)
+- ðŸš€ Lightweight (~10MB RAM)
+- ðŸ”„ Auto-restarts on failure
+- ðŸ”Œ IPv4 and domain name support
+- âš¡ Auto-starts on boot
+
+### 3. Auto Cleanup (`cleanup.sh` + `cleanup.service`)
+- ðŸ—‘ï¸ Cleans APT cache, pip cache, Python bytecode
+- â° Runs automatically on every boot
+- ðŸ’¾ Extends SD card lifespan by reducing writes
+- ðŸ“Š Logs cleanup results to `/tmp/cleanup.log`
+
+---
+
+## ðŸ“¦ Installation
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### Prerequisites
 
@@ -51,12 +84,20 @@ sudo cp ip_bot.py socks5_proxy.py cleanup.sh /opt/scripts/ && \
 sudo chmod +x /opt/scripts/*.sh /opt/scripts/*.py && \
 sudo cp cleanup.service /etc/systemd/system/ && \
 sudo systemctl daemon-reload && \
+<<<<<<< HEAD
 echo "Files copied! Now configure your settings (see Configuration section)"
+=======
+echo "âœ… Files copied! Now configure your settings (see Configuration section)"
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 ```
 
 ---
 
+<<<<<<< HEAD
 ## Configuration
+=======
+## âš™ï¸ Configuration
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### 1. Configure Telegram Bot
 
@@ -98,7 +139,11 @@ Save and exit (`Ctrl+X`, then `Y`, then `Enter`)
 
 ---
 
+<<<<<<< HEAD
 ## Enable & Start Services
+=======
+## ðŸš€ Enable & Start Services
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### Start Telegram Bot
 
@@ -174,7 +219,11 @@ cat /tmp/cleanup.log
 
 ---
 
+<<<<<<< HEAD
 ## Checking Logs & Status
+=======
+## ðŸ” Checking Logs & Status
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### Telegram Bot Logs
 
@@ -227,7 +276,11 @@ sudo /opt/scripts/cleanup.sh
 
 ---
 
+<<<<<<< HEAD
 ## Port Forwarding for Public Access
+=======
+## ðŸŒ Port Forwarding for Public Access
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 To access your SOCKS5 proxy from the internet (outside your home network), you need to set up port forwarding on your router.
 
@@ -242,7 +295,11 @@ hostname -I
 
 1. Access your router admin panel (usually `192.168.0.1` or `192.168.1.1`)
 2. Login with your router credentials
+<<<<<<< HEAD
 3. Find **Port Forwarding** section (may be under Advanced  NAT/Firewall)
+=======
+3. Find **Port Forwarding** section (may be under Advanced â†’ NAT/Firewall)
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 4. Add new port forwarding rule:
    - **Service Name**: SOCKS5-ArkOS
    - **External Port**: 1080 (or any port you prefer)
@@ -277,12 +334,17 @@ curl --socks5-hostname your_username:your_password@YOUR_PUBLIC_IP:1080 https://i
 ```
 
 **Browser Setup (Firefox):**
+<<<<<<< HEAD
 1. Settings  Network Settings  Manual Proxy Configuration
+=======
+1. Settings â†’ Network Settings â†’ Manual Proxy Configuration
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 2. SOCKS Host: `YOUR_PUBLIC_IP`
 3. Port: `1080`
 4. Check "SOCKS v5"
 5. OK
 
+<<<<<<< HEAD
 ### Security Considerations
 
 - **Use strong password** for SOCKS5 proxy
@@ -294,6 +356,19 @@ curl --socks5-hostname your_username:your_password@YOUR_PUBLIC_IP:1080 https://i
 ---
 
 ## Common Issues & Fixes
+=======
+### âš ï¸ Security Considerations
+
+- âœ… **Use strong password** for SOCKS5 proxy
+- âœ… **Change default username** from `arkproxy`
+- âœ… **Consider changing port** from 1080 to something non-standard
+- âš ï¸ **Dynamic IP**: Most home ISPs use dynamic public IPs that change periodically
+- ðŸ’¡ **Use Telegram bot** to get your current public IP anytime with `/ip` command
+
+---
+
+## ðŸ› Common Issues & Fixes
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### Telegram Bot Not Responding
 
@@ -362,7 +437,11 @@ sudo systemctl restart socks5proxy.service
 
 ### CPU Stats Showing "Error"
 
+<<<<<<< HEAD
 **Issue**: Telegram bot shows "CPU Usage: Error"
+=======
+**Issue**: Telegram bot shows "ðŸ”§ CPU Usage: Error"
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 **Fix**: This was due to UTF-8 encoding issue in `top` command output. Make sure you have the latest `ip_bot.py` version from the repo:
 
@@ -450,7 +529,11 @@ du -sh /* 2>/dev/null | sort -h | tail -10
 
 ---
 
+<<<<<<< HEAD
 ## Service Management Commands
+=======
+## ðŸ“ Service Management Commands
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### Quick Reference
 
@@ -484,7 +567,11 @@ journalctl -u <service-name> -f
 
 ---
 
+<<<<<<< HEAD
 ## Update Scripts
+=======
+## ðŸ”„ Update Scripts
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 To get the latest versions from GitHub:
 
@@ -513,7 +600,11 @@ sudo systemctl restart socks5proxy.service
 
 ---
 
+<<<<<<< HEAD
 ## Performance & Resource Usage
+=======
+## ðŸ“Š Performance & Resource Usage
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### Resource Consumption
 
@@ -526,6 +617,7 @@ sudo systemctl restart socks5proxy.service
 ### Battery Impact
 
 When running as a server with screen off:
+<<<<<<< HEAD
 - Battery drain: ~3-5% per hour (WiFi only)
 - Estimated runtime: 20-30 hours on full charge
 - Keep plugged in for 24/7 server use
@@ -533,6 +625,15 @@ When running as a server with screen off:
 ---
 
 ## Use Cases
+=======
+- âš¡ Battery drain: ~3-5% per hour (WiFi only)
+- ðŸ”‹ Estimated runtime: 20-30 hours on full charge
+- ðŸ’¡ Keep plugged in for 24/7 server use
+
+---
+
+## ðŸŽ¯ Use Cases
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 ### Personal VPN Alternative
 Use SOCKS5 proxy to browse securely through your home connection when on public WiFi.
@@ -548,6 +649,7 @@ Test mobile apps behind different network configurations.
 
 ---
 
+<<<<<<< HEAD
 ## Contributing
 
 Feel free to:
@@ -559,12 +661,29 @@ Feel free to:
 ---
 
 ## License
+=======
+## ðŸ¤ Contributing
+
+Feel free to:
+- ðŸ› Report bugs via GitHub Issues
+- ðŸ’¡ Suggest features
+- ðŸ”§ Submit pull requests
+- â­ Star the repository if you find it useful!
+
+---
+
+## ðŸ“œ License
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 MIT License - feel free to use and modify!
 
 ---
 
+<<<<<<< HEAD
 ## Disclaimer
+=======
+## âš ï¸ Disclaimer
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 - This is designed for **personal use** on **your own network**
 - Running public servers may violate your ISP's Terms of Service
@@ -574,7 +693,11 @@ MIT License - feel free to use and modify!
 
 ---
 
+<<<<<<< HEAD
 ## Additional Resources
+=======
+## ðŸ“š Additional Resources
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 - **ArkOS Wiki**: https://github.com/christianhaitian/arkos/wiki
 - **R36S Community**: https://www.reddit.com/r/SBCGaming/
@@ -583,9 +706,17 @@ MIT License - feel free to use and modify!
 
 ---
 
+<<<<<<< HEAD
 **Made for the ArkOS/R36S Community**
+=======
+**Made with â¤ï¸ for the ArkOS/R36S Community**
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
 
 Questions? Issues? Open a GitHub issue or discussion!
 #   a r k o s - s e r v e r 
  
+<<<<<<< HEAD
  
+=======
+ 
+>>>>>>> c061ef92b284a8840ac8844f10a484da80457940
