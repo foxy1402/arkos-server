@@ -22,6 +22,15 @@ ExecStart=/usr/bin/python3 /opt/scripts/socks5_proxy.py
 Restart=always
 RestartSec=30
 
+# Logging - redirect output to journal and file
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=socks5proxy
+
+# Also log to file for easy viewing
+StandardOutput=append:/var/log/socks5_proxy.log
+StandardError=append:/var/log/socks5_proxy.log
+
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
