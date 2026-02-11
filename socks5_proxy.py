@@ -12,9 +12,16 @@ import time
 import os
 import sys
 import signal
-import psutil
+import subprocess
 from collections import defaultdict
 from threading import Semaphore, Lock
+
+# Try to import psutil, but make it optional
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
 
 # Configuration (can be overridden with environment variables)
 PROXY_HOST = os.getenv('SOCKS5_HOST', '0.0.0.0')
@@ -95,23 +102,48 @@ class SOCKS5Server:
                 old_pid = int(f.read().strip())
             
             # Check if process exists
-            if psutil.pid_exists(old_pid):
+            if HAS_PSUTIL:
+                # Use psutil for better process handling
+                if psutil.pid_exists(old_pid):
+                    try:
+                        old_process = psutil.Process(old_pid)
+                        # Verify it's actually our script
+                        if 'socks5_proxy.py' in ' '.join(old_process.cmdline()):
+                            logger.warning(f"Found old instance (PID {old_pid}), terminating...")
+                            old_process.terminate()
+                            time.sleep(2)
+                            
+                            # Force kill if still alive
+                            if old_process.is_running():
+                                logger.warning(f"Force killing old instance (PID {old_pid})")
+                                old_process.kill()
+                                time.sleep(1)
+                            
+                            logger.info("Old instance terminated successfully")
+                    except psutil.NoSuchProcess:
+                        pass
+            else:
+                # Fallback without psutil - use kill command
                 try:
-                    old_process = psutil.Process(old_pid)
-                    # Verify it's actually our script
-                    if 'socks5_proxy.py' in ' '.join(old_process.cmdline()):
-                        logger.warning(f"Found old instance (PID {old_pid}), terminating...")
-                        old_process.terminate()
-                        time.sleep(2)
-                        
-                        # Force kill if still alive
-                        if old_process.is_running():
-                            logger.warning(f"Force killing old instance (PID {old_pid})")
-                            old_process.kill()
-                            time.sleep(1)
-                        
-                        logger.info("Old instance terminated successfully")
-                except psutil.NoSuchProcess:
+                    # Check if process exists
+                    os.kill(old_pid, 0)  # Signal 0 just checks existence
+                    # Process exists, kill it
+                    logger.warning(f"Found old instance (PID {old_pid}), terminating...")
+                    os.kill(old_pid, signal.SIGTERM)
+                    time.sleep(2)
+                    
+                    # Check if still alive and force kill
+                    try:
+                        os.kill(old_pid, 0)
+                        logger.warning(f"Force killing old instance (PID {old_pid})")
+                        os.kill(old_pid, signal.SIGKILL)
+                        time.sleep(1)
+                    except OSError:
+                        pass  # Process is dead
+                    
+                    logger.info("Old instance terminated successfully")
+                except OSError:
+                    # Process doesn't exist, just clean up PID file
                     pass
             
             # Clean up stale PID file
@@ -133,20 +165,55 @@ class SOCKS5Server:
             if e.errno == 98:  # Address already in use
                 logger.warning(f"Port {self.port} is in use, attempting to free it...")
                 
-                # Find and kill processes using the port
-                for proc in psutil.process_iter(['pid', 'name', 'connections']):
+                if HAS_PSUTIL:
+                    # Use psutil to find and kill processes using the port
+                    for proc in psutil.process_iter(['pid', 'name', 'connections']):
+                        try:
+                            for conn in proc.info['connections'] or []:
+                                if conn.laddr.port == self.port and conn.status == 'LISTEN':
+                                    logger.warning(f"Killing process {proc.pid} ({proc.name()}) using port {self.port}")
+                                    proc.terminate()
+                                    time.sleep(1)
+                                    if proc.is_running():
+                                        proc.kill()
+                                    time.sleep(1)
+                                    return True
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            continue
+                else:
+                    # Fallback: use lsof or netstat
                     try:
-                        for conn in proc.info['connections'] or []:
-                            if conn.laddr.port == self.port and conn.status == 'LISTEN':
-                                logger.warning(f"Killing process {proc.pid} ({proc.name()}) using port {self.port}")
-                                proc.terminate()
-                                time.sleep(1)
-                                if proc.is_running():
-                                    proc.kill()
-                                time.sleep(1)
-                                return True
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        continue
+                        # Try lsof first
+                        result = subprocess.run(
+                            ['lsof', '-ti', f':{self.port}'],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if result.returncode == 0 and result.stdout.strip():
+                            pid = int(result.stdout.strip().split()[0])
+                            logger.warning(f"Killing process {pid} using port {self.port}")
+                            os.kill(pid, signal.SIGTERM)
+                            time.sleep(1)
+                            try:
+                                os.kill(pid, signal.SIGKILL)
+                            except OSError:
+                                pass
+                            time.sleep(1)
+                            return True
+                    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+                        # lsof not available or failed, try fuser
+                        try:
+                            result = subprocess.run(
+                                ['fuser', '-k', f'{self.port}/tcp'],
+                                capture_output=True,
+                                timeout=5
+                            )
+                            time.sleep(1)
+                            logger.info(f"Attempted to free port {self.port} with fuser")
+                            return True
+                        except (FileNotFoundError, subprocess.TimeoutExpired):
+                            logger.warning("Cannot free port - lsof/fuser not available")
                 
                 logger.error(f"Failed to free port {self.port}")
                 return False
@@ -493,14 +560,12 @@ if __name__ == '__main__':
     logger.info("=" * 50)
     logger.info("SOCKS5 Proxy Server for ArkOS R36S")
     logger.info("Production-Ready with Self-Healing")
+    if HAS_PSUTIL:
+        logger.info("✓ psutil available - full self-healing enabled")
+    else:
+        logger.info("⚠ psutil not available - basic self-healing only")
+        logger.info("  (Install with: pip3 install psutil)")
     logger.info("=" * 50)
-    
-    # Check for psutil dependency
-    try:
-        import psutil
-    except ImportError:
-        logger.warning("psutil not found - self-healing features limited")
-        logger.warning("Install with: pip3 install psutil")
     
     try:
         proxy = SOCKS5Server(
