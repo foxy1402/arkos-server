@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SOCKS5 Proxy Server for ArkOS R36S
-Production-ready with security hardening
+Production-ready with security hardening and self-healing
 Run on port 1080 with username/password authentication
 """
 import socket
@@ -10,6 +10,9 @@ import struct
 import logging
 import time
 import os
+import sys
+import signal
+import psutil
 from collections import defaultdict
 from threading import Semaphore, Lock
 
@@ -28,6 +31,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# PID file for instance tracking
+PID_FILE = '/tmp/socks5_proxy.pid'
+
 class SOCKS5Server:
     def __init__(self, host, port, username, password, max_connections=50):
         self.host = host
@@ -39,11 +45,115 @@ class SOCKS5Server:
         self.connection_semaphore = Semaphore(max_connections)
         self.active_connections = 0
         self.conn_lock = Lock()
+        self.running = False
         
         # Rate limiting for auth failures (IP -> [timestamps])
         self.auth_failures = defaultdict(list)
         self.auth_lock = Lock()
+        
+        # Setup signal handlers for graceful shutdown
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+    
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals gracefully"""
+        logger.info(f"Received signal {signum}, shutting down gracefully...")
+        self.running = False
+        if self.server:
+            try:
+                self.server.close()
+            except Exception:
+                pass
+        self._cleanup_pid_file()
+        sys.exit(0)
 
+    def _write_pid_file(self):
+        """Write current process ID to file"""
+        try:
+            with open(PID_FILE, 'w') as f:
+                f.write(str(os.getpid()))
+            logger.debug(f"PID {os.getpid()} written to {PID_FILE}")
+        except Exception as e:
+            logger.warning(f"Failed to write PID file: {e}")
+    
+    def _cleanup_pid_file(self):
+        """Remove PID file on shutdown"""
+        try:
+            if os.path.exists(PID_FILE):
+                os.remove(PID_FILE)
+                logger.debug("PID file removed")
+        except Exception as e:
+            logger.warning(f"Failed to remove PID file: {e}")
+    
+    def _check_and_kill_old_instances(self):
+        """Check for old instances and kill them if needed"""
+        if not os.path.exists(PID_FILE):
+            return
+        
+        try:
+            with open(PID_FILE, 'r') as f:
+                old_pid = int(f.read().strip())
+            
+            # Check if process exists
+            if psutil.pid_exists(old_pid):
+                try:
+                    old_process = psutil.Process(old_pid)
+                    # Verify it's actually our script
+                    if 'socks5_proxy.py' in ' '.join(old_process.cmdline()):
+                        logger.warning(f"Found old instance (PID {old_pid}), terminating...")
+                        old_process.terminate()
+                        time.sleep(2)
+                        
+                        # Force kill if still alive
+                        if old_process.is_running():
+                            logger.warning(f"Force killing old instance (PID {old_pid})")
+                            old_process.kill()
+                            time.sleep(1)
+                        
+                        logger.info("Old instance terminated successfully")
+                except psutil.NoSuchProcess:
+                    pass
+            
+            # Clean up stale PID file
+            os.remove(PID_FILE)
+        except Exception as e:
+            logger.debug(f"Error checking old instances: {e}")
+    
+    def _check_port_availability(self):
+        """Check if port is available and try to free it"""
+        try:
+            # Try to bind to check availability
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            test_socket.bind((self.host, self.port))
+            test_socket.close()
+            logger.info(f"Port {self.port} is available")
+            return True
+        except OSError as e:
+            if e.errno == 98:  # Address already in use
+                logger.warning(f"Port {self.port} is in use, attempting to free it...")
+                
+                # Find and kill processes using the port
+                for proc in psutil.process_iter(['pid', 'name', 'connections']):
+                    try:
+                        for conn in proc.info['connections'] or []:
+                            if conn.laddr.port == self.port and conn.status == 'LISTEN':
+                                logger.warning(f"Killing process {proc.pid} ({proc.name()}) using port {self.port}")
+                                proc.terminate()
+                                time.sleep(1)
+                                if proc.is_running():
+                                    proc.kill()
+                                time.sleep(1)
+                                return True
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                
+                logger.error(f"Failed to free port {self.port}")
+                return False
+            else:
+                logger.error(f"Port check failed: {e}")
+                return False
+    
     def check_rate_limit(self, ip):
         """Check if IP is rate limited (max 5 failures per 60 seconds)"""
         with self.auth_lock:
@@ -296,19 +406,50 @@ class SOCKS5Server:
             self.connection_semaphore.release()
 
     def start(self):
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((self.host, self.port))
-        self.server.listen(100)
+        # Self-healing: Check and kill old instances
+        logger.info("Checking for old instances...")
+        self._check_and_kill_old_instances()
         
-        logger.info(f"SOCKS5 Proxy started on {self.host}:{self.port}")
-        logger.info(f"Username: {self.username}")
-        logger.info(f"Max connections: {self.max_connections}")
-        logger.info(f"Connection timeout: {CONNECTION_TIMEOUT}s")
-        logger.info(f"Idle timeout: {IDLE_TIMEOUT}s")
+        # Self-healing: Check and free port if needed
+        logger.info("Checking port availability...")
+        if not self._check_port_availability():
+            logger.error(f"Cannot start: port {self.port} is unavailable")
+            sys.exit(1)
+        
+        # Write PID file
+        self._write_pid_file()
+        
+        # Start server with retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.server.bind((self.host, self.port))
+                self.server.listen(100)
+                break
+            except Exception as e:
+                logger.error(f"Bind attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    logger.info("Retrying in 2 seconds...")
+                    time.sleep(2)
+                else:
+                    logger.error("Failed to start server after all retries")
+                    self._cleanup_pid_file()
+                    sys.exit(1)
+        
+        self.running = True
+        logger.info("=" * 50)
+        logger.info(f"✓ SOCKS5 Proxy started successfully on {self.host}:{self.port}")
+        logger.info(f"✓ Username: {self.username}")
+        logger.info(f"✓ Max connections: {self.max_connections}")
+        logger.info(f"✓ Connection timeout: {CONNECTION_TIMEOUT}s")
+        logger.info(f"✓ Idle timeout: {IDLE_TIMEOUT}s")
+        logger.info(f"✓ PID: {os.getpid()}")
+        logger.info("=" * 50)
         
         try:
-            while True:
+            while self.running:
                 try:
                     client, address = self.server.accept()
                     
@@ -334,25 +475,42 @@ class SOCKS5Server:
                     break
                 except Exception as e:
                     logger.error(f"Server error: {e}")
+                    if self.running:
+                        logger.info("Attempting to recover...")
+                        time.sleep(1)
         finally:
+            self.running = False
             if self.server:
                 try:
                     self.server.close()
                     logger.info("Server closed")
                 except Exception:
                     pass
+            self._cleanup_pid_file()
+            logger.info("Shutdown complete")
 
 if __name__ == '__main__':
     logger.info("=" * 50)
     logger.info("SOCKS5 Proxy Server for ArkOS R36S")
-    logger.info("Production-Ready Version with Security Hardening")
+    logger.info("Production-Ready with Self-Healing")
     logger.info("=" * 50)
     
-    proxy = SOCKS5Server(
-        PROXY_HOST, 
-        PROXY_PORT, 
-        PROXY_USER, 
-        PROXY_PASS,
-        MAX_CONNECTIONS
-    )
-    proxy.start()
+    # Check for psutil dependency
+    try:
+        import psutil
+    except ImportError:
+        logger.warning("psutil not found - self-healing features limited")
+        logger.warning("Install with: pip3 install psutil")
+    
+    try:
+        proxy = SOCKS5Server(
+            PROXY_HOST, 
+            PROXY_PORT, 
+            PROXY_USER, 
+            PROXY_PASS,
+            MAX_CONNECTIONS
+        )
+        proxy.start()
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        sys.exit(1)
