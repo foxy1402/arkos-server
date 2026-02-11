@@ -7,7 +7,8 @@ echo "This will:"
 echo "1. Pull latest code from GitHub"
 echo "2. Backup current version"
 echo "3. Install upgraded SOCKS5 proxy"
-echo "4. Restart service"
+echo "4. Stop old service"
+echo "5. Start upgraded service"
 echo ""
 read -p "Press Enter to continue or Ctrl+C to cancel..."
 
@@ -27,11 +28,15 @@ sudo chmod +x /opt/scripts/socks5_proxy.py
 echo "[3/5] Installing new socks5proxy.service..."
 sudo cp socks5proxy.service /etc/systemd/system/
 
-echo "[4/5] Reloading systemd..."
+echo "[4/6] Stopping old service..."
+sudo systemctl stop socks5proxy.service
+sleep 1
+
+echo "[5/6] Reloading systemd..."
 sudo systemctl daemon-reload
 
-echo "[5/5] Restarting service..."
-sudo systemctl restart socks5proxy.service
+echo "[6/6] Starting upgraded service..."
+sudo systemctl start socks5proxy.service
 
 echo ""
 echo "=== Checking Status ==="
