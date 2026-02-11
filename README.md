@@ -16,12 +16,19 @@ A collection of lightweight server tools for ArkOS (R36S handheld device), turni
 - Auto-starts on boot
 
 ### 2. SOCKS5 Proxy Server (`socks5_proxy.py`)
-- Username/password authentication
-- Pure Python implementation (no compilation needed)
-- Lightweight (~10MB RAM)
-- Auto-restarts on failure
+- **Production-grade with security hardening**
+- **Self-healing** - Auto-kills old instances and frees ports
+- Username/password authentication (SOCKS5 RFC 1928)
+- Environment variable configuration (no code edits needed)
+- Rate limiting (5 auth failures per 60s per IP)
+- Connection timeout (30s) and idle timeout (5 min)
+- Max connections limit (50 concurrent - protects your device)
 - IPv4 and domain name support
+- Pure Python - no compilation needed
+- Lightweight (~10-15MB RAM)
+- Auto-restarts on failure
 - Auto-starts on boot
+- Comprehensive logging to `/var/log/socks5_proxy.log`
 
 ### 3. Auto Cleanup (`cleanup.sh` + `cleanup.service`)
 - Cleans APT cache, pip cache, Python bytecode
@@ -49,6 +56,9 @@ cd arkos-server && \
 sudo cp ip_bot.py socks5_proxy.py cleanup.sh /opt/scripts/ && \
 sudo chmod +x /opt/scripts/*.sh /opt/scripts/*.py && \
 sudo cp cleanup.service /etc/systemd/system/ && \
+sudo cp socks5proxy.service /etc/systemd/system/ && \
+sudo touch /var/log/socks5_proxy.log && \
+sudo chown ark:ark /var/log/socks5_proxy.log && \
 sudo systemctl daemon-reload && \
 echo "Files copied! Now configure your settings (see Configuration section)"
 ```
@@ -78,18 +88,38 @@ Save and exit (`Ctrl+X`, then `Y`, then `Enter`)
 
 ### 2. Configure SOCKS5 Proxy
 
-Edit the proxy script to change credentials and port:
+**NEW: Environment Variable Configuration (Recommended)**
+
+Edit the systemd service file to change credentials without touching code:
+
+```bash
+sudo nano /etc/systemd/system/socks5proxy.service
+```
+
+Find and edit these environment variables:
+```ini
+Environment="SOCKS5_USER=arkproxy"        # Change this!
+Environment="SOCKS5_PASS=arkproxy2026"    # Change this!
+Environment="SOCKS5_PORT=1080"            # Optional: change port
+Environment="SOCKS5_MAX_CONN=50"          # Optional: max connections
+```
+
+Save, then apply changes:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart socks5proxy.service
+```
+
+**Alternative: Edit Python file directly (Old method)**
 
 ```bash
 sudo nano /opt/scripts/socks5_proxy.py
 ```
 
-Find and replace these lines (around lines 12-15):
+Find and replace defaults (around lines 19-20):
 ```python
-PROXY_HOST = '0.0.0.0'           # Listen on all interfaces
-PROXY_PORT = 1080                # Default SOCKS5 port
-PROXY_USER = 'your_username'     # Change this!
-PROXY_PASS = 'your_password'     # Change this!
+PROXY_USER = os.getenv('SOCKS5_USER', 'your_username')
+PROXY_PASS = os.getenv('SOCKS5_PASS', 'your_password')
 ```
 
 Save and exit (`Ctrl+X`, then `Y`, then `Enter`)
@@ -136,6 +166,10 @@ sudo systemctl status ipbot.service
 # Copy the service file
 sudo cp socks5proxy.service /etc/systemd/system/
 
+# Create log file
+sudo touch /var/log/socks5_proxy.log
+sudo chown ark:ark /var/log/socks5_proxy.log
+
 # Edit credentials BEFORE starting
 sudo nano /etc/systemd/system/socks5proxy.service
 # Change SOCKS5_USER and SOCKS5_PASS values, then save
@@ -145,6 +179,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable socks5proxy.service
 sudo systemctl start socks5proxy.service
 sudo systemctl status socks5proxy.service
+
+# View logs to see self-healing in action
+tail -f /var/log/socks5_proxy.log
 ```
 
 **Method 2: Manual service creation**
@@ -172,6 +209,10 @@ ExecStart=/usr/bin/python3 /opt/scripts/socks5_proxy.py
 Restart=always
 RestartSec=30
 
+# Logging
+StandardOutput=append:/var/log/socks5_proxy.log
+StandardError=append:/var/log/socks5_proxy.log
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -194,6 +235,56 @@ sudo systemctl status cleanup.service
 sudo /opt/scripts/cleanup.sh
 cat /tmp/cleanup.log
 ```
+
+---
+
+## SOCKS5 Self-Healing Features
+
+The SOCKS5 proxy includes advanced self-healing capabilities that make it production-ready:
+
+### Automatic Recovery
+- **Auto-kills old instances** - Detects and terminates previous processes on startup
+- **Port conflict resolution** - Automatically frees port 1080 if in use
+- **Retry logic** - 3 automatic retry attempts if binding fails
+- **Graceful shutdown** - Handles SIGTERM/SIGINT signals properly
+
+### Security Features
+- **Rate limiting** - Max 5 auth failures per 60 seconds per IP
+- **Connection timeout** - 30-second timeout prevents hanging connections
+- **Idle timeout** - 5-minute idle timeout for inactive connections
+- **Max connections** - Limited to 50 concurrent connections (protects your R36S)
+- **Input validation** - All SOCKS5 packets validated before processing
+- **No password logging** - Credentials never appear in logs
+
+### What You'll See in Logs
+```
+SOCKS5 Proxy Server for ArkOS R36S
+Production-Ready with Self-Healing
+⚠ psutil not available - basic self-healing only
+==================================================
+Checking for old instances...
+Checking port availability...
+Port 1080 is available
+✓ SOCKS5 Proxy started successfully on 0.0.0.0:1080
+✓ Username: arkproxy
+✓ Max connections: 50
+✓ Connection timeout: 30s
+✓ Idle timeout: 300s
+✓ PID: 12095
+==================================================
+```
+
+### Environment Variables Reference
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SOCKS5_HOST` | `0.0.0.0` | Listen address (0.0.0.0 = all interfaces) |
+| `SOCKS5_PORT` | `1080` | Port number |
+| `SOCKS5_USER` | `arkproxy` | Username for authentication |
+| `SOCKS5_PASS` | `arkproxy2026` | Password for authentication |
+| `SOCKS5_MAX_CONN` | `50` | Maximum concurrent connections |
+| `SOCKS5_TIMEOUT` | `30` | Connection timeout (seconds) |
+| `SOCKS5_IDLE_TIMEOUT` | `300` | Idle connection timeout (seconds) |
 
 ---
 
@@ -220,12 +311,21 @@ sudo systemctl restart ipbot.service
 # Check service status
 sudo systemctl status socks5proxy.service
 
+# View logs (last 50 lines)
+tail -50 /var/log/socks5_proxy.log
+
+# Follow logs in real-time
+tail -f /var/log/socks5_proxy.log
+
 # Check if port is listening
 netstat -tuln | grep 1080
 
 # Test connectivity from another device
 # On Windows PowerShell:
 Test-NetConnection -ComputerName <R36S_IP> -Port 1080
+
+# Test with curl (from Linux/Mac):
+curl --socks5-hostname username:password@<R36S_IP>:1080 https://ifconfig.me
 
 # Restart if needed
 sudo systemctl restart socks5proxy.service
@@ -463,6 +563,53 @@ rm -rf ~/.cache/thumbnails/*
 
 # Check largest directories
 du -sh /* 2>/dev/null | sort -h | tail -10
+```
+
+---
+
+## Upgrading to Latest Version
+
+To upgrade your SOCKS5 proxy to the latest version with self-healing:
+
+```bash
+# SSH into your R36S
+ssh ark@<YOUR_R36S_IP>
+
+# Stop the old service
+sudo systemctl stop socks5proxy.service
+
+# Pull latest code
+cd /tmp
+rm -rf arkos-server
+git clone https://github.com/foxy1402/arkos-server.git
+cd arkos-server
+
+# Backup old version
+sudo cp /opt/scripts/socks5_proxy.py /opt/scripts/socks5_proxy.py.backup
+
+# Copy new files
+sudo cp socks5_proxy.py /opt/scripts/
+sudo cp socks5proxy.service /etc/systemd/system/
+
+# Create log file if it doesn't exist
+sudo touch /var/log/socks5_proxy.log
+sudo chown ark:ark /var/log/socks5_proxy.log
+
+# Restart with new version
+sudo systemctl daemon-reload
+sudo systemctl start socks5proxy.service
+
+# Check status and logs
+sudo systemctl status socks5proxy.service
+tail -f /var/log/socks5_proxy.log
+```
+
+**Don't forget to update your credentials!**
+```bash
+sudo nano /etc/systemd/system/socks5proxy.service
+# Change SOCKS5_USER and SOCKS5_PASS
+sudo systemctl daemon-reload
+sudo systemctl restart socks5proxy.service
 ```
 
 ---
