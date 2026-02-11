@@ -130,8 +130,27 @@ sudo systemctl status ipbot.service
 
 ### Start SOCKS5 Proxy
 
+**Method 1: Use the provided service file (Recommended)**
+
 ```bash
-# Create systemd service for SOCKS5 proxy (if not exists)
+# Copy the service file
+sudo cp socks5proxy.service /etc/systemd/system/
+
+# Edit credentials BEFORE starting
+sudo nano /etc/systemd/system/socks5proxy.service
+# Change SOCKS5_USER and SOCKS5_PASS values, then save
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable socks5proxy.service
+sudo systemctl start socks5proxy.service
+sudo systemctl status socks5proxy.service
+```
+
+**Method 2: Manual service creation**
+
+```bash
+# Create systemd service for SOCKS5 proxy
 sudo tee /etc/systemd/system/socks5proxy.service > /dev/null << 'EOF'
 [Unit]
 Description=SOCKS5 Proxy Server for ArkOS
@@ -142,6 +161,13 @@ Wants=network-online.target
 Type=simple
 User=ark
 WorkingDirectory=/opt/scripts
+
+# Change these values!
+Environment="SOCKS5_USER=arkproxy"
+Environment="SOCKS5_PASS=arkproxy2026"
+Environment="SOCKS5_PORT=1080"
+Environment="SOCKS5_MAX_CONN=50"
+
 ExecStart=/usr/bin/python3 /opt/scripts/socks5_proxy.py
 Restart=always
 RestartSec=30

@@ -1,0 +1,30 @@
+[Unit]
+Description=SOCKS5 Proxy Server for ArkOS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ark
+WorkingDirectory=/opt/scripts
+
+# Configuration via Environment Variables
+# Change these values to customize your proxy settings
+Environment="SOCKS5_HOST=0.0.0.0"
+Environment="SOCKS5_PORT=1080"
+Environment="SOCKS5_USER=arkproxy"
+Environment="SOCKS5_PASS=arkproxy2026"
+Environment="SOCKS5_MAX_CONN=50"
+Environment="SOCKS5_TIMEOUT=30"
+Environment="SOCKS5_IDLE_TIMEOUT=300"
+
+ExecStart=/usr/bin/python3 /opt/scripts/socks5_proxy.py
+Restart=always
+RestartSec=30
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
