@@ -1,0 +1,9 @@
+# Run this on your R36S to check if auto-start is enabled:
+
+sudo systemctl is-enabled socks5proxy.service
+
+# If it says 'enabled' - you're good!
+# If it says 'disabled' - run this to enable it:
+
+sudo systemctl enable socks5proxy.service
+

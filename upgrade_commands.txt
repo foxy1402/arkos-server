@@ -1,0 +1,28 @@
+# Commands to run on your R36S (copy-paste these)
+
+# 1. Stop the old service
+sudo systemctl stop socks5proxy.service
+
+# 2. Pull latest code
+cd /tmp
+rm -rf arkos-server
+git clone https://github.com/foxy1402/arkos-server.git
+cd arkos-server
+
+# 3. Backup old version (optional)
+sudo cp /opt/scripts/socks5_proxy.py /opt/scripts/socks5_proxy.py.backup.old
+
+# 4. Copy new files
+sudo cp socks5_proxy.py /opt/scripts/
+sudo cp socks5proxy.service /etc/systemd/system/
+
+# 5. Reload and start new version
+sudo systemctl daemon-reload
+sudo systemctl start socks5proxy.service
+
+# 6. Check the new version is running
+sudo systemctl status socks5proxy.service
+
+# 7. View logs to see self-healing in action
+sudo journalctl -u socks5proxy.service -n 50 --no-pager
+
